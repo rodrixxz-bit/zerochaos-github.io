@@ -1,24 +1,44 @@
 // api/analyze-tasks.js
-import { InferenceClient } from '@huggingface/inference';
+import { HfInference } from '@huggingface/inference';
 
 export default async function handler(req, res) {
+  // Configurar CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  // Manejar preflight request
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   // Solo permitir POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { tasks } = req.body; // Recibe las tareas del frontend
+    const { tasks } = req.body;
 
     if (!tasks || tasks.length === 0) {
       return res.status(400).json({ error: 'No tasks provided' });
     }
 
-    // Configura tu token de Hugging Face (usa variables de entorno)
-    const HF_TOKEN = process.env.HF_TOKEN; // Configúralo en Vercel
-    const client = new InferenceClient(HF_TOKEN);
+    // Configura tu token de Hugging Face desde variables de entorno
+    const HF_TOKEN = process.env.HF_TOKEN;
+    
+    if (!HF_TOKEN) {
+      return res.status(500).json({ error: 'HF_TOKEN not configured' });
+    }
 
-    // El mismo prompt y lógica que tienes en main.js
+    const client = new HfInference(HF_TOKEN);
+
+    // Preparar el prompt
     const taskNames = tasks.map((task, index) => `${index + 1}. ${task.name}`).join('\n');
     
     const prompt = `Eres un experto en gestión de proyectos. Analiza estas tareas y clasifícalas por dificultad según estos criterios:
@@ -53,7 +73,6 @@ ${taskNames}
 Ejemplo de respuesta correcta: 1,3,2,1,3`;
 
     const chatCompletion = await client.chatCompletion({
-      provider: "novita",
       model: "meta-llama/Llama-3.2-3B-Instruct",
       messages: [
         {
@@ -88,7 +107,10 @@ Ejemplo de respuesta correcta: 1,3,2,1,3`;
 
     res.status(200).json({ sortedTasks });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to analyze tasks' });
+    console.error('Error en análisis de tareas:', error);
+    res.status(500).json({ 
+      error: 'Failed to analyze tasks',
+      message: error.message 
+    });
   }
 }
