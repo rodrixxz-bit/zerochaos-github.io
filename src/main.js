@@ -5,7 +5,7 @@ import './style.css';
 import { HfInference, InferenceClient } from '@huggingface/inference';
 
 // Configurar API key de Hugging Face
-const HF_TOKEN = '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';
+const HF_TOKEN = import.meta.env.VITE_HF_TOKEN;
 const client = new InferenceClient(HF_TOKEN)
 
 // Estado de la aplicación
