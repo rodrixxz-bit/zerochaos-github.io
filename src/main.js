@@ -2,6 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import * as bootstrap from 'bootstrap';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './style.css';
+import { HfInference } from '@huggingface/inference';
 
 // Estado de la aplicación
 let currentPage = 'landing';
@@ -33,24 +34,106 @@ async function analyzeTasks(tasks) {
     return tasks;
   }
 
-  try {
-    const response = await fetch('/api/analyze-tasks', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ tasks }),
-    });
+  // Detectar si estamos en desarrollo local
+  const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-    if (!response.ok) {
-      throw new Error('Error en el análisis de IA');
+  if (isDevelopment) {
+    // Modo desarrollo: usar HuggingFace directamente desde el frontend
+    try {
+      const HF_TOKEN = import.meta.env.VITE_HF_TOKEN || 'tu_token_aqui';
+      const client = new HfInference(HF_TOKEN);
+
+      const taskNames = tasks.map((task, index) => `${index + 1}. ${task.name}`).join('\n');
+      
+      const prompt = `Eres un experto en gestión de proyectos. Analiza estas tareas y clasifícalas por dificultad según estos criterios:
+
+**CRITERIOS DE DIFICULTAD:**
+
+🟢 FÁCIL (1): 
+- Tareas simples y rápidas (menos de 30 minutos)
+- No requieren conocimientos técnicos avanzados
+- Ejemplos: enviar email, actualizar documento, hacer llamada, revisar texto
+
+🟡 MEDIA (2):
+- Tareas que requieren 1-3 horas
+- Conocimientos técnicos básicos o intermedios
+- Ejemplos: crear presentación, configurar herramienta, investigar tema, escribir artículo
+
+🔴 DIFÍCIL (3):
+- Tareas complejas (más de 3 horas)
+- Requieren conocimientos técnicos avanzados
+- Múltiples pasos o dependencias
+- Ejemplos: desarrollar API, diseñar arquitectura, implementar base de datos, crear sistema completo
+
+**TAREAS A ANALIZAR:**
+${taskNames}
+
+**INSTRUCCIONES:**
+- Analiza cada tarea considerando: complejidad técnica, tiempo estimado, conocimientos requeridos
+- Responde SOLO con números (1, 2 o 3) separados por comas
+- Un número por cada tarea en el mismo orden
+- NO agregues explicaciones, SOLO números
+
+Ejemplo de respuesta correcta: 1,3,2,1,3`;
+
+      const chatCompletion = await client.chatCompletion({
+        model: "meta-llama/Llama-3.2-3B-Instruct",
+        messages: [
+          {
+            role: "system",
+            content: "Eres un experto en gestión de proyectos que clasifica tareas por dificultad de forma precisa y consistente."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        max_tokens: 100,
+        temperature: 0.2
+      });
+
+      const response = chatCompletion.choices[0].message.content;
+      const numbers = response.match(/[1-3]/g) || [];
+
+      // Asigna dificultad a las tareas
+      tasks.forEach((task, i) => {
+        task.difficulty = parseInt(numbers[i]) || 2;
+        const diffLabels = { 
+          1: '🟢 Fácil', 
+          2: '🟡 Media', 
+          3: '🔴 Difícil' 
+        };
+        task.difficultyLabel = diffLabels[task.difficulty];
+      });
+
+      // Ordena por dificultad
+      const sortedTasks = tasks.sort((a, b) => (a.difficulty || 0) - (b.difficulty || 0));
+      return sortedTasks;
+    } catch (error) {
+      console.error('Error en desarrollo:', error);
+      throw new Error('Error al analizar tareas en modo desarrollo');
     }
+  } else {
+    // Modo producción: usar la API serverless de Vercel
+    try {
+      const response = await fetch('/api/analyze-tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tasks }),
+      });
 
-    const data = await response.json();
-    return data.sortedTasks;
-  } catch (error) {
-    console.error('Error:', error);
-    throw error;
+      if (!response.ok) {
+        throw new Error('Error en el análisis de IA');
+      }
+
+      const data = await response.json();
+      return data.sortedTasks;
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
   }
 }
 // LANDING PAGE
