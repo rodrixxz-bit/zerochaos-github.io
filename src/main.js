@@ -2,11 +2,6 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import * as bootstrap from 'bootstrap';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './style.css';
-import { HfInference, InferenceClient } from '@huggingface/inference';
-
-// Configurar API key de Hugging Face
-const HF_TOKEN = import.meta.env.VITE_HF_TOKEN;
-const client = new InferenceClient(HF_TOKEN)
 
 // Estado de la aplicación
 let currentPage = 'landing';
