@@ -2,11 +2,6 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import * as bootstrap from 'bootstrap';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './style.css';
-import { HfInference, InferenceClient } from '@huggingface/inference';
-
-// Configurar API key de Hugging Face
-const HF_TOKEN = import.meta.env.VITE_HF_TOKEN;
-const client = new InferenceClient(HF_TOKEN)
 
 // Estado de la aplicación
 let currentPage = 'landing';
@@ -38,93 +33,23 @@ async function analyzeTasks(tasks) {
     return tasks;
   }
 
-  console.log('Tareas a analizar:', tasks);
-
-  const taskNames = tasks.map((task, index) => `${index + 1}. ${task.name}`).join('\n');
-  
-  console.log('Lista de tareas:', taskNames);
-
-  const prompt = `Eres un experto en gestión de proyectos. Analiza estas tareas y clasifícalas por dificultad según estos criterios:
-
-**CRITERIOS DE DIFICULTAD:**
-
-🟢 FÁCIL (1): 
-- Tareas simples y rápidas (menos de 30 minutos)
-- No requieren conocimientos técnicos avanzados
-- Ejemplos: enviar email, actualizar documento, hacer llamada, revisar texto
-
-🟡 MEDIA (2):
-- Tareas que requieren 1-3 horas
-- Conocimientos técnicos básicos o intermedios
-- Ejemplos: crear presentación, configurar herramienta, investigar tema, escribir artículo
-
-🔴 DIFÍCIL (3):
-- Tareas complejas (más de 3 horas)
-- Requieren conocimientos técnicos avanzados
-- Múltiples pasos o dependencias
-- Ejemplos: desarrollar API, diseñar arquitectura, implementar base de datos, crear sistema completo
-
-**TAREAS A ANALIZAR:**
-${taskNames}
-
-**INSTRUCCIONES:**
-- Analiza cada tarea considerando: complejidad técnica, tiempo estimado, conocimientos requeridos
-- Responde SOLO con números (1, 2 o 3) separados por comas
-- Un número por cada tarea en el mismo orden
-- NO agregues explicaciones, SOLO números
-
-Ejemplo de respuesta correcta: 1,3,2,1,3`;
-
   try {
-    const chatCompletion = await client.chatCompletion({
-      provider: "novita",
-      model: "meta-llama/Llama-3.2-3B-Instruct",
-      messages: [
-        {
-          role: "system",
-          content: "Eres un experto en gestión de proyectos que clasifica tareas por dificultad de forma precisa y consistente."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_tokens: 100,
-      temperature: 0.2 // Más bajo = más consistente
+    const response = await fetch('/api/analyze-tasks', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tasks }),
     });
 
-    const response = chatCompletion.choices[0].message.content;
-    console.log('Respuesta IA:', response);
-
-    // Extraer números de la respuesta (mejorado)
-    const numbers = response.match(/[1-3]/g) || [];
-    console.log('Números extraídos:', numbers);
-    
-    // Validar que tengamos suficientes números
-    if (numbers.length < tasks.length) {
-      console.warn('La IA no devolvió suficientes clasificaciones, usando valores por defecto');
+    if (!response.ok) {
+      throw new Error('Error en el análisis de IA');
     }
-    
-    // Asignar dificultad a cada tarea
-    tasks.forEach((task, i) => {
-      task.difficulty = parseInt(numbers[i]) || 2; // Default: Media si falla
-      
-      // Agregar badge visual
-      const diffLabels = { 
-        1: '🟢 Fácil', 
-        2: '🟡 Media', 
-        3: '🔴 Difícil' 
-      };
-      task.difficultyLabel = diffLabels[task.difficulty];
-    });
 
-    console.log('Tareas con dificultad:', tasks);
-
-    // Ordenar por dificultad (Fácil primero)
-    return tasks.sort((a, b) => (a.difficulty || 0) - (b.difficulty || 0));
-
+    const data = await response.json();
+    return data.sortedTasks;
   } catch (error) {
-    console.error('Error detallado:', error);
+    console.error('Error:', error);
     throw error;
   }
 }
