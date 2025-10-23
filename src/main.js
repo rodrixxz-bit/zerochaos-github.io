@@ -24,7 +24,13 @@ function render() {
   } else if (currentPage === 'dashboard' && loggedInUser) {
     renderDashboard();
   } else if (currentPage === 'pricing' && loggedInUser) {
-    renderPricingPage(); // ← AGREGA ESTA LÍNEA
+    renderPricingPage();
+  } else if (currentPage === 'teams' && loggedInUser) {
+    renderTeamsPage();
+  } else if (currentPage === 'calendar' && loggedInUser) {
+    renderCalendarPage();
+  } else if (currentPage === 'settings' && loggedInUser) {
+    renderSettingsPage();
   }
 }
 
@@ -671,6 +677,815 @@ function setupPricingNavigation() {
     }
   });
 }
+
+// TEAMS PAGE
+function renderTeamsPage() {
+  // Inicializar equipos si no existen
+  if (!loggedInUser.teams) {
+    loggedInUser.teams = [];
+  }
+
+  app.innerHTML = `
+    <div style="display: flex; min-height: 100vh;">
+      ${renderSidebar('teams')}
+      
+      <!-- Main Content -->
+      <div class="flex-grow-1" style="background-color: #f8f9fa;">
+        <!-- Top Bar -->
+        <div class="bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
+          <h2 class="h4 mb-0 fw-bold">Teams</h2>
+          <div class="d-flex gap-3 align-items-center">
+            <span class="text-muted">${loggedInUser.name}</span>
+            <button class="btn btn-sm btn-outline-danger" id="btnLogout">Logout</button>
+          </div>
+        </div>
+
+        <!-- Teams Content -->
+        <div class="container-fluid p-4">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+              <h3 class="h5 fw-bold mb-1">Gestión de Equipos</h3>
+              <p class="text-muted mb-0">Administra tus equipos y miembros</p>
+            </div>
+            <button class="btn btn-primary" id="btnAddTeam">
+              <i class="bi bi-plus-circle me-2"></i>Nuevo Equipo
+            </button>
+          </div>
+
+          <!-- Teams Grid -->
+          <div class="row g-4" id="teamsGrid">
+            ${renderTeamsGrid()}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Nuevo Equipo -->
+    <div class="modal fade" id="modalNewTeam" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Nuevo Equipo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Nombre del Equipo</label>
+              <input type="text" class="form-control" id="inputTeamName" placeholder="Ej: Desarrollo Frontend">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Descripción</label>
+              <textarea class="form-control" id="inputTeamDesc" rows="3" placeholder="Descripción del equipo..."></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnSaveTeam">Crear Equipo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Agregar Miembro -->
+    <div class="modal fade" id="modalAddMember" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Agregar Miembro</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Nombre del Miembro</label>
+              <input type="text" class="form-control" id="inputMemberName" placeholder="Nombre completo">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="inputMemberEmail" placeholder="email@ejemplo.com">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Rol</label>
+              <select class="form-select" id="inputMemberRole">
+                <option value="member">Miembro</option>
+                <option value="leader">Líder</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnSaveMember">Agregar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  setupTeamsListeners();
+}
+
+function renderTeamsGrid() {
+  if (!loggedInUser.teams || loggedInUser.teams.length === 0) {
+    return `
+      <div class="col-12">
+        <div class="text-center py-5">
+          <i class="bi bi-people" style="font-size: 4rem; color: #dee2e6;"></i>
+          <p class="text-muted mt-3">No tienes equipos creados</p>
+          <p class="text-muted">Crea tu primer equipo para comenzar</p>
+        </div>
+      </div>
+    `;
+  }
+
+  return loggedInUser.teams.map(team => `
+    <div class="col-md-6 col-lg-4">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <h5 class="card-title mb-0">${team.name}</h5>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
+                <i class="bi bi-three-dots-vertical"></i>
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="editTeam('${team.id}')">Editar</a></li>
+                <li><a class="dropdown-item text-danger" href="#" onclick="deleteTeam('${team.id}')">Eliminar</a></li>
+              </ul>
+            </div>
+          </div>
+          <p class="text-muted small mb-3">${team.description || 'Sin descripción'}</p>
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-people-fill text-primary"></i>
+              <span class="small">${team.members?.length || 0} miembros</span>
+            </div>
+            <button class="btn btn-sm btn-outline-primary" onclick="addMemberToTeam('${team.id}')">
+              <i class="bi bi-plus"></i> Agregar
+            </button>
+          </div>
+          ${team.members && team.members.length > 0 ? `
+            <div class="mt-3">
+              <div class="d-flex flex-wrap gap-2">
+                ${team.members.slice(0, 3).map(member => `
+                  <span class="badge bg-light text-dark">${member.name}</span>
+                `).join('')}
+                ${team.members.length > 3 ? `<span class="badge bg-secondary">+${team.members.length - 3}</span>` : ''}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function setupTeamsListeners() {
+  setupPricingNavigation();
+  
+  document.getElementById('btnLogout')?.addEventListener('click', handleLogout);
+  
+  document.getElementById('btnAddTeam')?.addEventListener('click', () => {
+    const modal = new bootstrap.Modal(document.getElementById('modalNewTeam'));
+    modal.show();
+  });
+
+  document.getElementById('btnSaveTeam')?.addEventListener('click', () => {
+    const name = document.getElementById('inputTeamName').value.trim();
+    const description = document.getElementById('inputTeamDesc').value.trim();
+
+    if (!name) {
+      alert('Por favor ingresa un nombre para el equipo');
+      return;
+    }
+
+    const newTeam = {
+      id: Date.now().toString(),
+      name,
+      description,
+      members: [],
+      createdAt: new Date().toISOString()
+    };
+
+    if (!loggedInUser.teams) {
+      loggedInUser.teams = [];
+    }
+
+    loggedInUser.teams.push(newTeam);
+    saveToLocalStorage();
+
+    bootstrap.Modal.getInstance(document.getElementById('modalNewTeam')).hide();
+    render();
+  });
+
+  // Navegación del sidebar
+  document.getElementById('navDashboard')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'dashboard';
+    render();
+  });
+
+  document.getElementById('navTeams')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'teams';
+    render();
+  });
+
+  document.getElementById('navCalendar')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'calendar';
+    render();
+  });
+
+  document.getElementById('navSettings')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'settings';
+    render();
+  });
+}
+
+// Funciones globales para Teams
+window.addMemberToTeam = function(teamId) {
+  window.currentTeamId = teamId;
+  const modal = new bootstrap.Modal(document.getElementById('modalAddMember'));
+  modal.show();
+
+  document.getElementById('btnSaveMember').onclick = () => {
+    const name = document.getElementById('inputMemberName').value.trim();
+    const email = document.getElementById('inputMemberEmail').value.trim();
+    const role = document.getElementById('inputMemberRole').value;
+
+    if (!name || !email) {
+      alert('Por favor completa todos los campos');
+      return;
+    }
+
+    const team = loggedInUser.teams.find(t => t.id === teamId);
+    if (team) {
+      if (!team.members) team.members = [];
+      team.members.push({ id: Date.now().toString(), name, email, role });
+      saveToLocalStorage();
+      bootstrap.Modal.getInstance(document.getElementById('modalAddMember')).hide();
+      render();
+    }
+  };
+};
+
+window.deleteTeam = function(teamId) {
+  if (confirm('¿Estás seguro de eliminar este equipo?')) {
+    loggedInUser.teams = loggedInUser.teams.filter(t => t.id !== teamId);
+    saveToLocalStorage();
+    render();
+  }
+};
+
+// CALENDAR PAGE
+function renderCalendarPage() {
+  // Inicializar eventos si no existen
+  if (!loggedInUser.events) {
+    loggedInUser.events = [];
+  }
+
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+
+  app.innerHTML = `
+    <div style="display: flex; min-height: 100vh;">
+      ${renderSidebar('calendar')}
+      
+      <!-- Main Content -->
+      <div class="flex-grow-1" style="background-color: #f8f9fa;">
+        <!-- Top Bar -->
+        <div class="bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
+          <h2 class="h4 mb-0 fw-bold">Calendar</h2>
+          <div class="d-flex gap-3 align-items-center">
+            <span class="text-muted">${loggedInUser.name}</span>
+            <button class="btn btn-sm btn-outline-danger" id="btnLogout">Logout</button>
+          </div>
+        </div>
+
+        <!-- Calendar Content -->
+        <div class="container-fluid p-4">
+          <div class="row g-4">
+            <!-- Calendar View -->
+            <div class="col-lg-8">
+              <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0">${getMonthName(currentMonth)} ${currentYear}</h5>
+                  <button class="btn btn-primary btn-sm" id="btnAddEvent">
+                    <i class="bi bi-plus-circle me-1"></i>Nuevo Evento
+                  </button>
+                </div>
+                <div class="card-body">
+                  ${renderCalendar(currentMonth, currentYear)}
+                </div>
+              </div>
+            </div>
+
+            <!-- Upcoming Events -->
+            <div class="col-lg-4">
+              <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                  <h5 class="mb-0">Próximos Eventos</h5>
+                </div>
+                <div class="card-body">
+                  ${renderUpcomingEvents()}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Nuevo Evento -->
+    <div class="modal fade" id="modalNewEvent" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Nuevo Evento</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Título del Evento</label>
+              <input type="text" class="form-control" id="inputEventTitle" placeholder="Reunión de equipo">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Fecha</label>
+              <input type="date" class="form-control" id="inputEventDate">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Hora</label>
+              <input type="time" class="form-control" id="inputEventTime">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Descripción</label>
+              <textarea class="form-control" id="inputEventDesc" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Tipo</label>
+              <select class="form-select" id="inputEventType">
+                <option value="meeting">Reunión</option>
+                <option value="deadline">Fecha límite</option>
+                <option value="reminder">Recordatorio</option>
+                <option value="other">Otro</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnSaveEvent">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  setupCalendarListeners();
+}
+
+function getMonthName(month) {
+  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  return months[month];
+}
+
+function renderCalendar(month, year) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date().getDate();
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  let html = `
+    <div class="calendar-grid">
+      <div class="row text-center fw-bold mb-2">
+        <div class="col">Dom</div>
+        <div class="col">Lun</div>
+        <div class="col">Mar</div>
+        <div class="col">Mié</div>
+        <div class="col">Jue</div>
+        <div class="col">Vie</div>
+        <div class="col">Sáb</div>
+      </div>
+  `;
+
+  let dayCounter = 1;
+  for (let week = 0; week < 6; week++) {
+    html += '<div class="row mb-2">';
+    for (let day = 0; day < 7; day++) {
+      if ((week === 0 && day < firstDay) || dayCounter > daysInMonth) {
+        html += '<div class="col p-2"></div>';
+      } else {
+        const isToday = dayCounter === today && month === currentMonth && year === currentYear;
+        const hasEvent = loggedInUser.events?.some(e => {
+          const eventDate = new Date(e.date);
+          return eventDate.getDate() === dayCounter && 
+                 eventDate.getMonth() === month && 
+                 eventDate.getFullYear() === year;
+        });
+        
+        html += `
+          <div class="col p-2">
+            <div class="calendar-day ${isToday ? 'bg-primary text-white' : ''} ${hasEvent ? 'border border-warning' : ''} 
+                        rounded p-2 text-center" style="min-height: 50px; cursor: pointer;">
+              ${dayCounter}
+              ${hasEvent ? '<div class="mt-1"><i class="bi bi-circle-fill text-warning" style="font-size: 6px;"></i></div>' : ''}
+            </div>
+          </div>
+        `;
+        dayCounter++;
+      }
+    }
+    html += '</div>';
+    if (dayCounter > daysInMonth) break;
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderUpcomingEvents() {
+  if (!loggedInUser.events || loggedInUser.events.length === 0) {
+    return '<p class="text-muted text-center">No hay eventos próximos</p>';
+  }
+
+  const now = new Date();
+  const upcoming = loggedInUser.events
+    .filter(e => new Date(e.date) >= now)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .slice(0, 5);
+
+  if (upcoming.length === 0) {
+    return '<p class="text-muted text-center">No hay eventos próximos</p>';
+  }
+
+  return upcoming.map(event => {
+    const eventDate = new Date(event.date);
+    const typeIcons = {
+      meeting: 'bi-camera-video',
+      deadline: 'bi-alarm',
+      reminder: 'bi-bell',
+      other: 'bi-calendar-event'
+    };
+    
+    return `
+      <div class="mb-3 pb-3 border-bottom">
+        <div class="d-flex align-items-start gap-2">
+          <i class="bi ${typeIcons[event.type] || 'bi-calendar-event'} text-primary mt-1"></i>
+          <div class="flex-grow-1">
+            <h6 class="mb-1">${event.title}</h6>
+            <p class="text-muted small mb-1">
+              ${eventDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+              ${event.time ? `- ${event.time}` : ''}
+            </p>
+            ${event.description ? `<p class="small text-muted mb-0">${event.description}</p>` : ''}
+          </div>
+          <button class="btn btn-sm btn-link text-danger" onclick="deleteEvent('${event.id}')">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setupCalendarListeners() {
+  setupPricingNavigation();
+  
+  document.getElementById('btnLogout')?.addEventListener('click', handleLogout);
+  
+  document.getElementById('btnAddEvent')?.addEventListener('click', () => {
+    const modal = new bootstrap.Modal(document.getElementById('modalNewEvent'));
+    modal.show();
+  });
+
+  document.getElementById('btnSaveEvent')?.addEventListener('click', () => {
+    const title = document.getElementById('inputEventTitle').value.trim();
+    const date = document.getElementById('inputEventDate').value;
+    const time = document.getElementById('inputEventTime').value;
+    const description = document.getElementById('inputEventDesc').value.trim();
+    const type = document.getElementById('inputEventType').value;
+
+    if (!title || !date) {
+      alert('Por favor completa el título y la fecha');
+      return;
+    }
+
+    const newEvent = {
+      id: Date.now().toString(),
+      title,
+      date,
+      time,
+      description,
+      type,
+      createdAt: new Date().toISOString()
+    };
+
+    if (!loggedInUser.events) {
+      loggedInUser.events = [];
+    }
+
+    loggedInUser.events.push(newEvent);
+    saveToLocalStorage();
+
+    bootstrap.Modal.getInstance(document.getElementById('modalNewEvent')).hide();
+    render();
+  });
+
+  // Navegación del sidebar
+  document.getElementById('navDashboard')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'dashboard';
+    render();
+  });
+
+  document.getElementById('navTeams')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'teams';
+    render();
+  });
+
+  document.getElementById('navCalendar')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'calendar';
+    render();
+  });
+
+  document.getElementById('navSettings')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'settings';
+    render();
+  });
+}
+
+window.deleteEvent = function(eventId) {
+  if (confirm('¿Eliminar este evento?')) {
+    loggedInUser.events = loggedInUser.events.filter(e => e.id !== eventId);
+    saveToLocalStorage();
+    render();
+  }
+};
+
+// SETTINGS PAGE
+function renderSettingsPage() {
+  app.innerHTML = `
+    <div style="display: flex; min-height: 100vh;">
+      ${renderSidebar('settings')}
+      
+      <!-- Main Content -->
+      <div class="flex-grow-1" style="background-color: #f8f9fa;">
+        <!-- Top Bar -->
+        <div class="bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
+          <h2 class="h4 mb-0 fw-bold">Settings</h2>
+          <div class="d-flex gap-3 align-items-center">
+            <span class="text-muted">${loggedInUser.name}</span>
+            <button class="btn btn-sm btn-outline-danger" id="btnLogout">Logout</button>
+          </div>
+        </div>
+
+        <!-- Settings Content -->
+        <div class="container-fluid p-4">
+          <div class="row g-4">
+            <!-- Profile Settings -->
+            <div class="col-lg-8">
+              <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                  <h5 class="mb-0"><i class="bi bi-person-circle me-2"></i>Perfil</h5>
+                </div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="inputProfileName" value="${loggedInUser.name}">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="inputProfileEmail" value="${loggedInUser.email}">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Empresa</label>
+                    <input type="text" class="form-control" id="inputProfileCompany" value="${loggedInUser.company || ''}" placeholder="Nombre de tu empresa">
+                  </div>
+                  <button class="btn btn-primary" id="btnSaveProfile">
+                    <i class="bi bi-check-circle me-2"></i>Guardar Cambios
+                  </button>
+                </div>
+              </div>
+
+              <!-- Password Settings -->
+              <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                  <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Seguridad</h5>
+                </div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <label class="form-label">Contraseña Actual</label>
+                    <input type="password" class="form-control" id="inputCurrentPassword">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Nueva Contraseña</label>
+                    <input type="password" class="form-control" id="inputNewPassword">
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Confirmar Nueva Contraseña</label>
+                    <input type="password" class="form-control" id="inputConfirmPassword">
+                  </div>
+                  <button class="btn btn-warning" id="btnChangePassword">
+                    <i class="bi bi-key me-2"></i>Cambiar Contraseña
+                  </button>
+                </div>
+              </div>
+
+              <!-- Notifications Settings -->
+              <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                  <h5 class="mb-0"><i class="bi bi-bell me-2"></i>Notificaciones</h5>
+                </div>
+                <div class="card-body">
+                  <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="notifEmail" ${loggedInUser.notifications?.email !== false ? 'checked' : ''}>
+                    <label class="form-check-label" for="notifEmail">
+                      Notificaciones por Email
+                    </label>
+                  </div>
+                  <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="notifTasks" ${loggedInUser.notifications?.tasks !== false ? 'checked' : ''}>
+                    <label class="form-check-label" for="notifTasks">
+                      Recordatorios de Tareas
+                    </label>
+                  </div>
+                  <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="notifEvents" ${loggedInUser.notifications?.events !== false ? 'checked' : ''}>
+                    <label class="form-check-label" for="notifEvents">
+                      Recordatorios de Eventos
+                    </label>
+                  </div>
+                  <button class="btn btn-primary" id="btnSaveNotifications">
+                    <i class="bi bi-check-circle me-2"></i>Guardar Preferencias
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Account Info -->
+            <div class="col-lg-4">
+              <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                  <h5 class="mb-0">Información de Cuenta</h5>
+                </div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <label class="text-muted small">Plan Actual</label>
+                    <p class="fw-bold mb-0 text-capitalize">${loggedInUser.plan || 'Básico'}</p>
+                  </div>
+                  <div class="mb-3">
+                    <label class="text-muted small">Ciclo de Facturación</label>
+                    <p class="fw-bold mb-0 text-capitalize">${loggedInUser.billingCycle === 'annual' ? 'Anual' : 'Mensual'}</p>
+                  </div>
+                  <div class="mb-3">
+                    <label class="text-muted small">Proyectos Activos</label>
+                    <p class="fw-bold mb-0">${loggedInUser.projects?.length || 0}</p>
+                  </div>
+                  <div class="mb-3">
+                    <label class="text-muted small">Equipos</label>
+                    <p class="fw-bold mb-0">${loggedInUser.teams?.length || 0}</p>
+                  </div>
+                  <button class="btn btn-outline-primary w-100" id="btnUpgradePlan">
+                    <i class="bi bi-arrow-up-circle me-2"></i>Mejorar Plan
+                  </button>
+                </div>
+              </div>
+
+              <!-- Danger Zone -->
+              <div class="card shadow-sm border-danger">
+                <div class="card-header bg-danger text-white">
+                  <h5 class="mb-0">Zona de Peligro</h5>
+                </div>
+                <div class="card-body">
+                  <p class="text-muted small">Eliminar tu cuenta es permanente y no se puede deshacer.</p>
+                  <button class="btn btn-danger w-100" id="btnDeleteAccount">
+                    <i class="bi bi-trash me-2"></i>Eliminar Cuenta
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  setupSettingsListeners();
+}
+
+function setupSettingsListeners() {
+  setupPricingNavigation();
+  
+  document.getElementById('btnLogout')?.addEventListener('click', handleLogout);
+
+  // Guardar perfil
+  document.getElementById('btnSaveProfile')?.addEventListener('click', () => {
+    loggedInUser.name = document.getElementById('inputProfileName').value.trim();
+    loggedInUser.email = document.getElementById('inputProfileEmail').value.trim();
+    loggedInUser.company = document.getElementById('inputProfileCompany').value.trim();
+    
+    saveToLocalStorage();
+    alert('✅ Perfil actualizado correctamente');
+  });
+
+  // Cambiar contraseña
+  document.getElementById('btnChangePassword')?.addEventListener('click', () => {
+    const current = document.getElementById('inputCurrentPassword').value;
+    const newPass = document.getElementById('inputNewPassword').value;
+    const confirm = document.getElementById('inputConfirmPassword').value;
+
+    if (!current || !newPass || !confirm) {
+      alert('Por favor completa todos los campos');
+      return;
+    }
+
+    if (current !== loggedInUser.password) {
+      alert('❌ Contraseña actual incorrecta');
+      return;
+    }
+
+    if (newPass !== confirm) {
+      alert('❌ Las contraseñas no coinciden');
+      return;
+    }
+
+    if (newPass.length < 6) {
+      alert('❌ La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    loggedInUser.password = newPass;
+    saveToLocalStorage();
+    alert('✅ Contraseña cambiada correctamente');
+    
+    // Limpiar campos
+    document.getElementById('inputCurrentPassword').value = '';
+    document.getElementById('inputNewPassword').value = '';
+    document.getElementById('inputConfirmPassword').value = '';
+  });
+
+  // Guardar notificaciones
+  document.getElementById('btnSaveNotifications')?.addEventListener('click', () => {
+    if (!loggedInUser.notifications) {
+      loggedInUser.notifications = {};
+    }
+
+    loggedInUser.notifications.email = document.getElementById('notifEmail').checked;
+    loggedInUser.notifications.tasks = document.getElementById('notifTasks').checked;
+    loggedInUser.notifications.events = document.getElementById('notifEvents').checked;
+
+    saveToLocalStorage();
+    alert('✅ Preferencias de notificaciones guardadas');
+  });
+
+  // Mejorar plan
+  document.getElementById('btnUpgradePlan')?.addEventListener('click', () => {
+    currentPage = 'pricing';
+    render();
+  });
+
+  // Eliminar cuenta
+  document.getElementById('btnDeleteAccount')?.addEventListener('click', () => {
+    if (confirm('⚠️ ¿Estás seguro? Esta acción no se puede deshacer.')) {
+      if (confirm('¿Realmente deseas eliminar tu cuenta y todos tus datos?')) {
+        users = users.filter(u => u.email !== loggedInUser.email);
+        handleLogout();
+        alert('Tu cuenta ha sido eliminada');
+      }
+    }
+  });
+
+  // Navegación del sidebar
+  document.getElementById('navDashboard')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'dashboard';
+    render();
+  });
+
+  document.getElementById('navTeams')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'teams';
+    render();
+  });
+
+  document.getElementById('navCalendar')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'calendar';
+    render();
+  });
+
+  document.getElementById('navSettings')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPage = 'settings';
+    render();
+  });
+};
 // Setup Pricing Listeners
 function setupPricingListeners() {
   const billingToggle = document.getElementById('billingToggle');
