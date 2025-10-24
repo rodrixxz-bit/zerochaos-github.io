@@ -26,3 +26,5 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: dist
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
