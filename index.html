@@ -2,13 +2,22 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/zerochaos/public/vite.svg" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">   
+    <link rel="icon" type="image/svg+xml" href="/zerochaos-github.io/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ZeroChaos</title>
-    <script type="module" crossorigin src="/zerochaos-github.io/assets/index-CdsweXKm.js"></script>
-    <link rel="stylesheet" crossorigin href="/zerochaos-github.io/assets/index-BrwilVC9.css">
+    <!-- Script de configuración de entorno -->
+    <script>
+      // Configuración de entorno
+      window.ENV = {
+        VITE_HF_TOKEN: 'TU_TOKEN_AQUI' // Reemplaza con tu token
+      };
+    </script>
+    <script type="module" crossorigin src="/zerochaos-github.io/assets/main-Cu6bE99Z.js"></script>
+    <link rel="modulepreload" crossorigin href="/zerochaos-github.io/assets/bootstrap-BWZ_srF0.js">
+    <link rel="modulepreload" crossorigin href="/zerochaos-github.io/assets/vendor-CZnAS8i4.js">
+    <link rel="stylesheet" crossorigin href="/zerochaos-github.io/assets/main-BJXO0SJ0.css">
   </head>
   <body>
-    <div id="app"></div>
+    <div id="root"></div>
   </body>
 </html>
